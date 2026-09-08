@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+/packages/
+artifacts/
+
+# Rider / ReSharper
+.idea/
+riderModule.iml
+/_ReSharper.Caches/
+*.DotSettings.user
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# OS
+*.DS_Store
+Thumbs.db
