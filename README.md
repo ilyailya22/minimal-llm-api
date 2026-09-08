@@ -6,11 +6,13 @@ the model.
 
 One project. One interface. No database.
 
-```bash
-curl -N -X POST localhost:8080/api/chat/stream \
-     -H "Content-Type: application/json" \
-     -d '{"message":"Write a haiku about databases"}'
+![Streaming a haiku from a local model, token by token](docs/streaming.gif)
 
+Recorded against `llama3.2:1b` running under `docker compose` — every token in that
+recording arrived separately, roughly 60 ms apart, exactly as the model produced it. The
+wire format is server-sent events:
+
+```
 event: conversation
 data: 0499b35769104be1b67ac82f719bc7f6
 
@@ -19,14 +21,8 @@ data: Structured
 
 event: token
 data:  knowledge
-
-event: token
-data: Rows
 ...
 ```
-
-Real output from `llama3.2:1b`: the first token lands about two seconds in, the rest
-arrive roughly 60 ms apart.
 
 ## Run it
 
