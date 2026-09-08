@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore MinimalLlm.slnx
+
+      - run: dotnet build MinimalLlm.slnx --configuration Release --no-restore
+
+      # The suite stubs Ollama at the HTTP boundary, so CI needs no model and no container.
+      - run: dotnet test MinimalLlm.slnx --configuration Release --no-build --verbosity normal
+
+      - run: dotnet format MinimalLlm.slnx --verify-no-changes

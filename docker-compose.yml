@@ -1,0 +1,45 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Pulls the model once, then exits. A reviewer will not wait for a 5 GB download,
+  # so this is a ~1.3 GB model that answers in seconds on CPU.
+  model-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["ollama", "pull", "llama3.2:1b"]
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/MinimalLlm.Api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      Ollama__BaseUrl: http://ollama:11434
+      Ollama__ChatModel: llama3.2:1b
+    depends_on:
+      model-pull:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ollama-models:
