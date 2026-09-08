@@ -22,14 +22,14 @@ the seam the tests stub, and where a second provider would plug in.
 
 ## Running it
 
-Requires the .NET SDK and Ollama running locally on `http://localhost:11434`.
+Requires the .NET 10 SDK and Ollama running locally on `http://localhost:11434`.
 
 ```bash
 ollama pull llama3.1
 dotnet run --project src/MinimalLlm.Api
 ```
 
-Then open `/swagger`, or:
+Then open `/scalar/v1` for interactive API docs, or:
 
 ```bash
 curl -X POST localhost:5210/api/chat \
@@ -37,7 +37,9 @@ curl -X POST localhost:5210/api/chat \
      -d '{"message":"Write a haiku about databases"}'
 ```
 
-Configuration lives in `src/MinimalLlm.Api/appsettings.json`:
+Configuration lives in `src/MinimalLlm.Api/appsettings.json`. Both keys are required and
+validated at startup — a missing or malformed `BaseUrl` stops the app from booting rather
+than failing at the first request:
 
 ```json
 { "Ollama": { "BaseUrl": "http://localhost:11434", "ChatModel": "llama3.1" } }
