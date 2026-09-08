@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using MinimalLlm.Chat;
 using MinimalLlm.Endpoints;
 using MinimalLlm.Ollama;
 using Scalar.AspNetCore;
@@ -12,6 +13,8 @@ builder.Services.AddOptions<OllamaOptions>()
     .ValidateOnStart();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ConversationStore>();
 builder.Services.AddOpenApi();
 
 builder.Services.AddHttpClient<IOllamaClient, OllamaClient>((serviceProvider, client) =>
@@ -35,5 +38,6 @@ app.MapGet("/", () => Results.Ok(new { status = "ok" }));
 
 app.MapChatEndpoints();
 app.MapModelEndpoints();
+app.MapConversationEndpoints();
 
 app.Run();

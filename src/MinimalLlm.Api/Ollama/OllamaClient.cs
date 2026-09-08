@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using MinimalLlm.Chat;
 
 namespace MinimalLlm.Ollama;
 
@@ -9,9 +10,9 @@ public sealed class OllamaClient(HttpClient httpClient, IOptions<OllamaOptions> 
 {
     private readonly OllamaOptions _options = options.Value;
 
-    public async Task<string> ChatAsync(string message, CancellationToken cancellationToken = default)
+    public async Task<string> ChatAsync(IReadOnlyList<ChatMessage> messages, CancellationToken cancellationToken = default)
     {
-        var request = BuildRequest(message, stream: false);
+        var request = BuildRequest(messages, stream: false);
 
         using var response = await httpClient.PostAsJsonAsync(
             "/api/chat", request, OllamaJsonContext.Default.OllamaChatRequest, cancellationToken);
@@ -25,13 +26,13 @@ public sealed class OllamaClient(HttpClient httpClient, IOptions<OllamaOptions> 
     }
 
     public async IAsyncEnumerable<string> StreamChatAsync(
-        string message,
+        IReadOnlyList<ChatMessage> messages,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/chat")
         {
             Content = JsonContent.Create(
-                BuildRequest(message, stream: true), OllamaJsonContext.Default.OllamaChatRequest)
+                BuildRequest(messages, stream: true), OllamaJsonContext.Default.OllamaChatRequest)
         };
 
         // ResponseHeadersRead is what makes this a stream: without it HttpClient buffers the
@@ -76,6 +77,8 @@ public sealed class OllamaClient(HttpClient httpClient, IOptions<OllamaOptions> 
         return result?.Models?.Select(x => x.Name).ToArray() ?? [];
     }
 
-    private OllamaChatRequest BuildRequest(string message, bool stream) =>
-        new(_options.ChatModel, [new OllamaChatMessage("user", message)], stream);
+    private OllamaChatRequest BuildRequest(IReadOnlyList<ChatMessage> messages, bool stream) =>
+        new(_options.ChatModel,
+            [.. messages.Select(m => new OllamaChatMessage(m.Role, m.Content))],
+            stream);
 }
