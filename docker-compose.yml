@@ -35,11 +35,10 @@ services:
     depends_on:
       model-pull:
         condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+    # No container healthcheck: the aspnet runtime image ships neither curl nor wget, and
+    # adding a package to a deliberately minimal image just to colour a status field green
+    # is not a trade worth making. /health is the real check, and nothing here waits on the
+    # API's health condition. An orchestrator that needs one would use its own HTTP probe.
 
 volumes:
   ollama-models:
