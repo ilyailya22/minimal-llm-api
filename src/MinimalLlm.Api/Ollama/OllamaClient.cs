@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -6,12 +7,18 @@ using MinimalLlm.Chat;
 
 namespace MinimalLlm.Ollama;
 
-public sealed class OllamaClient(HttpClient httpClient, IOptions<OllamaOptions> options) : IOllamaClient
+public sealed class OllamaClient(
+    HttpClient httpClient,
+    IOptions<OllamaOptions> options,
+    ILogger<OllamaClient> logger) : IOllamaClient
 {
     private readonly OllamaOptions _options = options.Value;
 
-    public async Task<string> ChatAsync(IReadOnlyList<ChatMessage> messages, CancellationToken cancellationToken = default)
+    public async Task<string> ChatAsync(
+        IReadOnlyList<ChatMessage> messages,
+        CancellationToken cancellationToken = default)
     {
+        var started = Stopwatch.GetTimestamp();
         var request = BuildRequest(messages, stream: false);
 
         using var response = await httpClient.PostAsJsonAsync(
@@ -21,14 +28,22 @@ public sealed class OllamaClient(HttpClient httpClient, IOptions<OllamaOptions> 
         var result = await response.Content.ReadFromJsonAsync(
             OllamaJsonContext.Default.OllamaChatResponse, cancellationToken);
 
-        return result?.Message?.Content
-               ?? throw new InvalidOperationException("Ollama returned an empty response.");
+        var answer = result?.Message?.Content
+                     ?? throw new InvalidOperationException("Ollama returned an empty response.");
+
+        OllamaLog.ChatCompleted(
+            logger, _options.ChatModel, messages.Count, PromptLength(messages), answer.Length, ElapsedMs(started));
+
+        return answer;
     }
 
     public async IAsyncEnumerable<string> StreamChatAsync(
         IReadOnlyList<ChatMessage> messages,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var started = Stopwatch.GetTimestamp();
+        var fragments = 0;
+
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/chat")
         {
             Content = JsonContent.Create(
@@ -44,24 +59,47 @@ public sealed class OllamaClient(HttpClient httpClient, IOptions<OllamaOptions> 
         await using var body = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new StreamReader(body);
 
-        // Ollama streams NDJSON: one complete JSON object per line.
-        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        try
         {
-            if (line.Length == 0)
+            // Ollama streams NDJSON: one complete JSON object per line.
+            while (true)
             {
-                continue;
+                var line = await reader.ReadLineAsync(cancellationToken);
+
+                if (line is null)
+                {
+                    break;
+                }
+
+                if (line.Length == 0)
+                {
+                    continue;
+                }
+
+                var chunk = JsonSerializer.Deserialize(line, OllamaJsonContext.Default.OllamaChatResponse);
+
+                if (chunk?.Message?.Content is { Length: > 0 } fragment)
+                {
+                    fragments++;
+                    yield return fragment;
+                }
+
+                if (chunk?.Done == true)
+                {
+                    break;
+                }
             }
-
-            var chunk = JsonSerializer.Deserialize(line, OllamaJsonContext.Default.OllamaChatResponse);
-
-            if (chunk?.Message?.Content is { Length: > 0 } fragment)
+        }
+        finally
+        {
+            if (cancellationToken.IsCancellationRequested)
             {
-                yield return fragment;
+                OllamaLog.StreamCancelled(logger, _options.ChatModel, fragments, ElapsedMs(started));
             }
-
-            if (chunk?.Done == true)
+            else
             {
-                yield break;
+                OllamaLog.StreamCompleted(
+                    logger, _options.ChatModel, messages.Count, PromptLength(messages), fragments, ElapsedMs(started));
             }
         }
     }
@@ -81,4 +119,10 @@ public sealed class OllamaClient(HttpClient httpClient, IOptions<OllamaOptions> 
         new(_options.ChatModel,
             [.. messages.Select(m => new OllamaChatMessage(m.Role, m.Content))],
             stream);
+
+    private static int PromptLength(IReadOnlyList<ChatMessage> messages) =>
+        messages.Sum(m => m.Content.Length);
+
+    private static long ElapsedMs(long startedTimestamp) =>
+        (long)Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds;
 }

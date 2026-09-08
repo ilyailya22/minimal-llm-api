@@ -54,6 +54,8 @@ public static class ChatEndpoints
                 Stream(request.Message, conversationId, ollamaClient, conversations, cancellationToken));
         });
 
+        group.RequireRateLimiting(RateLimitPolicies.Generation);
+
         return app;
     }
 
