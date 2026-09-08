@@ -11,7 +11,11 @@ internal sealed record OllamaChatRequest(
 
 internal sealed record OllamaChatMessage(string Role, string Content);
 
-internal sealed record OllamaChatResponse(OllamaChatMessage? Message);
+/// <summary>
+/// One /api/chat response. When streaming, Ollama sends one of these per NDJSON line,
+/// each carrying a fragment in <see cref="Message"/>, and sets <see cref="Done"/> on the last.
+/// </summary>
+internal sealed record OllamaChatResponse(OllamaChatMessage? Message, bool Done);
 
 internal sealed record OllamaTagsResponse(IReadOnlyList<OllamaModel>? Models);
 
