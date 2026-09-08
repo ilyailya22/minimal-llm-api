@@ -1,0 +1,5 @@
+# Normalise to LF everywhere so `dotnet format --verify-no-changes` gives the same
+# answer on a Windows working tree and on a Linux CI runner.
+* text=auto eol=lf
+*.png binary
+*.gif binary

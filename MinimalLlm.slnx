@@ -1,3 +1,8 @@
 <Solution>
-  <Project Path="src/MinimalLlm.Api/MinimalLlm.Api.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/MinimalLlm.Api/MinimalLlm.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MinimalLlm.Tests/MinimalLlm.Tests.csproj" />
+  </Folder>
 </Solution>
